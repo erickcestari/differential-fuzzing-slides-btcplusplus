@@ -4,19 +4,18 @@ title: Differential Fuzzing on ⚡
 info: |
   ## Differential Fuzzing on ⚡
 class: text-center
+colorSchema: light
 drawings:
   persist: false
 mdc: true
 ---
 
 # Differential Fuzzing on ⚡
-Finding Implementation Bugs Before Users Do
 
 <!--
 Hello, my name is Erick Cestari. 
 
-I will talk about differential fuzzing on the Lightning Network - 
-a technique to find bugs between different Lightning implementations.
+I will talk about differential fuzzing on the Lightning Network. A technique to find bugs between different Lightning implementations.
 -->
 
 ---
@@ -50,7 +49,7 @@ Same invoice, different implementation, different result.
 
 ---
 
-# Implementation Differences
+## Implementation Differences
 
 Different Lightning implementations can interpret the same data differently
 
@@ -93,7 +92,7 @@ So the solution is by doing differential fuzzing. The theme of this presentation
 
 * Erick Cestari
 * Vinteum Grantee (Bitcoin development funding)
-* Maintainer of bitcoinfuzz - found 15+ bugs across Lightning implementations (we'll see some of them)
+* Maintainer of bitcoinfuzz. Found 15+ bugs across Lightning implementations (we'll see some of them)
 * **Why this matters:** I've seen firsthand how implementation differences create real problems
 
 <!--
@@ -101,7 +100,7 @@ But first, Who am I?
 
 My name is Erick Cestari.
 
-I am a Vinteum grantee - that's Bitcoin development funding for those who aren't familiar.
+I am a Vinteum grantee. That's Bitcoin development funding for those who aren't familiar.
 
 I'm the maintainer of bitcoinfuzz, where I've found over 15 bugs across various Lightning implementations and reported some security disclosures.
 
@@ -109,20 +108,20 @@ Why does this matter for today's talk? I've seen firsthand how these implementat
 -->
 ---
 ---
-# Bitcoin: Code as Specification
+## Bitcoin: Code as Specification
 If we built a new Bitcoin implementation today, where would we find the specification?
 
-* Bitcoin Core codebase - the reference implementation
+* Bitcoin Core codebase. The reference implementation
 * No formal written specification document
 * Consensus rules are implicit in the code
 <!--
-Bitcoin has an interesting characteristic - there's no formal specification document. 
+Bitcoin has an interesting characteristic. There's no formal specification document. 
 If you want to build a new Bitcoin implementation today, you essentially have to reverse-engineer Bitcoin Core.
 The consensus rules are implicit in the code, which means implementation differences can be catastrophic.
 -->
 ---
----
-# Lightning: Specification-First Approach
+
+## Lightning: Specification-First Approach
 
 Lightning Network took a different approach with BOLT specifications
 
@@ -135,13 +134,14 @@ Lightning Network took a different approach with BOLT specifications
 
 <!--
 Lightning Network learned from Bitcoin's approach and took a specification-first approach.
-BOLT stands for Basis of Lightning Technology - these are formal written specifications that cover all aspects of the Lightning protocol.
+BOLT stands for Basis of Lightning Technology. These are formal written specifications that cover all aspects of the Lightning protocol.
 This allows multiple implementations to follow the same spec and theoretically be compatible.
 
-But here's the catch - specifications can be ambiguous or incomplete. 
+But here's the catch. Specifications can be ambiguous or incomplete. 
 Even with a formal spec, different teams can interpret the same requirements differently.
-This is where our differential fuzzing comes in - to find these interpretation differences systematically.
+This is where our differential fuzzing comes in. To find these interpretation differences systematically.
 -->
+
 ---
 ---
 ## Edge Cases
@@ -156,24 +156,59 @@ This is where implementations diverge:
 Differential fuzzing systematically explores these specification gaps.
 
 <!--
-So here's the core challenge with specifications - even when they're comprehensive like BOLT, they can't anticipate every possible edge case.
+So here's the core challenge with specifications. Even when they're comprehensive like BOLT, they can't anticipate every possible edge case.
 
 Take this real example from our fuzzing results: The BOLT11 specification says the 'r' field should contain "one or more entries" for routing information. Sounds clear, right?
 
 But what happens when you encounter an 'r' field that exists but contains zero entries? The specification doesn't explicitly address this scenario.
 
-And this is exactly where we see implementations diverge. Rust-Lightning and Core Lightning take a strict interpretation - they reject invoices with empty 'r' fields. Meanwhile, LND and Eclair are more permissive - they accept these invoices.
+And this is exactly where we see implementations diverge. Rust-Lightning and Core Lightning take a strict interpretation. They reject invoices with empty 'r' fields. Meanwhile, LND and Eclair are more permissive. They accept these invoices.
 
-Neither approach is necessarily wrong - they're just different interpretations of an ambiguous specification.
+Neither approach is necessarily wrong. They're just different interpretations of an ambiguous specification.
 
 This is the perfect example of why differential fuzzing is so valuable. Instead of waiting for users to discover these incompatibilities in production, we can systematically generate edge cases like this and find where implementations behave differently. This helps us identify specification gaps before they cause real-world payment failures.
 -->
 ---
----
+
 # So let's start simple, what is fuzzing?
 
-- Fuzzing is a software testing technique.
-- Generate thousands of inputs and feed them to a program.
+- Fuzzing is an automated software testing technique that involves providing invalid, unexpected, or random data as inputs to a computer program.
+
+<!--
+So let's start by fuzzing testing technique. So it's an automated software testing technique that involves providing invalid, unexpected or random data as inputs to a program.
+-->
+
+---
+class: flex items-center justify-center text-center
+---
+
+<div style="transform: scale(3.2);">
+
+```mermaid
+graph LR
+    A[(Corpus)] --> |Inputs| B[Fuzz Engine]
+    B --> |Mutated Inputs| C[Fuzz Target]
+    C --> |Test| D((Program))
+    D --> |Execution| E[Sanitizer]
+    E --> F[(Results)]
+    
+    B --> |New Inputs| A
+    E --> |Coverage Callbacks| B
+
+    style A fill:#e8f5e8
+    style F fill:#e8f0f8
+    style B fill:#f0f8ff
+    style C fill:#e8f5e8
+    style D fill:#e8f0f8
+    style E fill:#f0f8ff
+```
+</div>
+
+<!--
+So this diagram shows an overview of how fuzzing works. We can see the corpus which is the inputs that we use to feed to our program after being mutated by the Fuzzer Engine. The target is the function/part of code we want to test of the program. So when we execute a input it will trigger the sanitizers that then give the feedback to the fuzzer engine that will choose based on coverage to save or not that input to the corpus.
+-->
+
+---
 
 What is the problem with this double function?
 
@@ -190,7 +225,11 @@ fuzz_target!(|data: &[u8]| {
     }
 });
 ```
----
+
+<!--
+This is an example of a bug that fuzzing can find. We have this double function that receives a signed integer 32 bits that then will be multiplied by 2. In this example we can see that the double function doesn't handle overflow, so running the fuzzer we will see that it will crash by overflow.
+-->
+
 ---
 
 # Let's try now with double function fixed
@@ -208,10 +247,14 @@ fuzz_target!(|data: &[u8]| {
     }
 });
 ```
----
+
+<!--
+Now let's try with the function fixed to see what happens. We can see that the fuzzer get stuck because it explored all the code and maximized the coverage and didn't find any crashes.
+-->
+
 ---
 
-# Coverage-Guided Fuzzing
+## Coverage-Guided Fuzzing
 
 Smarter Fuzzing with Coverage
 Instead of random inputs:
@@ -221,6 +264,10 @@ Instead of random inputs:
 - Focus on edge cases that trigger unusual behavior
 
 Result: Find bugs faster with fewer test cases
+
+<!--
+C
+-->
 
 ---
 ---
@@ -356,16 +403,19 @@ graph TB
 * targets: deserialize_invoice, deserialize_offer
 
 **Status:** 30 bugs found so far.
-
 ---
+class: flex flex-col items-center text-center h-full
 ---
-# What happens when implementations differ?
 
-* Different parsing of the same BOLT11 invoice
-* Different parsing of the same BOLT12 offer
-* Different handling of malformed payment requests
+<div class="flex-1 flex items-center justify-center">
 
-The problem: These discrepancies create unpredictable behavior across the network
+# Thank You!
 
-Example: Your wallet generates a valid invoice, but some nodes reject it while others accept it
----
+</div>
+
+<div>
+erickcestari03@gmail.com
+</div>
+<div>
+github.com/erickcestari
+</div>
