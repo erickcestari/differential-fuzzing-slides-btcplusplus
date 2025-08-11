@@ -55,7 +55,8 @@ Different Lightning implementations can interpret the same data differently
 
 Real-world impact:
 
-* Poor user experience
+* **Network instability** -  Interoperability failures between implementations
+* **Poor user experience** - Success depends on implementation choice
 
 Traditional approach:
 
@@ -190,13 +191,11 @@ graph LR
     B --> |Mutated Inputs| C[Fuzz Target]
     C --> |Test| D((Program))
     D --> |Execution| E[Sanitizer]
-    E --> F[(Results)]
     
     B --> |New Inputs| A
-    E --> |Coverage Callbacks| B
+    E --> |Coverage Feedback| B
 
     style A fill:#e8f5e8
-    style F fill:#e8f0f8
     style B fill:#f0f8ff
     style C fill:#e8f5e8
     style D fill:#e8f0f8
@@ -207,23 +206,6 @@ graph LR
 <!--
 So this diagram shows an overview of how fuzzing works. We can see the corpus which is the inputs that we use to feed to our program that will be mutated by the Fuzzer Engine. The target is the function/part of code we want to test of the program. So when we execute a input it will trigger the sanitizers that then give the feedback to the fuzzer engine that will choose based on coverage to save or not that input to the corpus.
 -->
----
----
-## Coverage-Guided Fuzzing
-
-Smarter Fuzzing with Coverage
-Instead of random inputs:
-
-- Track which code paths are exercised
-- Mutate inputs that discover new paths
-- Focus on edge cases that trigger unusual behavior
-
-Result: Find bugs faster with fewer test cases
-
-<!--
-C
--->
-
 ---
 ---
 ## Coverage-Sanitizer
@@ -260,7 +242,6 @@ int calculate_grade(int score) {
 
 # Let's see an example in practice
 
-
 What is the problem with this double function?
 ```rust
 use libfuzzer_sys::fuzz_target;
@@ -281,7 +262,7 @@ This is an example of a bug that fuzzing can find. We have this double function 
 -->
 
 ---
-
+---
 # Let's try now with double function fixed
 
 ```rust
@@ -310,6 +291,55 @@ Now let's try with the function fixed to see what happens. We can see that the f
 - Generate inputs and feed them simultaneously to **multiple programs**.
 - Compare the outputs of the programs to find discrepancies.
 
+---
+class: flex items-center justify-center text-center
+---
+
+<div style="transform: scale(3.2);">
+
+```mermaid
+graph LR
+    A[(Corpus)] --> B[Fuzzing Engine]
+    
+    B --> C[Same Input]
+    C --> D[Program A<br/>LND]
+    C --> E[Program B<br/>Core Lightning]
+    C --> F[Program C<br/>Rust-Lightning]
+    
+    D --> G[Output A]
+    E --> H[Output B] 
+    F --> I[Output C]
+    
+    G --> J{Compare<br/>All Outputs}
+    H --> J
+    I --> J
+    
+    J -->|All Same| K[No Issues<br/>Continue Testing]
+    J -->|Different| L[Bug Found!<br/>Implementation Difference]
+    
+    K --> M[Coverage Feedback]
+    L --> N[Report Bug<br/>& Save Test Case]
+    
+    M --> B
+    
+    style A fill:#e1f5fe
+    style B fill:#f3e5f5
+    style C fill:#fff3e0
+    style D fill:#e8f5e8
+    style E fill:#e8f5e8
+    style F fill:#e8f5e8
+    style J fill:#fff9c4
+    style L fill:#ffebee
+    style K fill:#e8f5e82
+```
+</div>
+
+<!--
+-->
+---
+---
+# Example: Differential Fuzzing
+
 ```rust
 fn double(x: i32) -> Option<i32> {
     x.checked_mul(2)
@@ -332,7 +362,6 @@ fuzz_target!(|data: &[u8]| {
     }
 });
 ```
-
 ---
 ---
 
