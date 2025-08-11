@@ -381,14 +381,17 @@ fuzz_target!(|data: &[u8]| {
 ---
 ## So which bugs We have found so far?
 
-So in this bug, lightning-kmp was wrongly rejecting an valid invoice by recovering the public key from the signature and then verifying it against the signature without normalizing it first.
-
+Lightning-kmp incorrectly rejected valid invoices because it verified recovered public keys against non-normalized signatures.
 <img src="./lightning-kmp.png" style="width: 900px; height: 420px; object-fit: contain; margin: 0 auto; display: block;" />
----
----
-## CLN accepting invalid invoices
 
-CLN was accepting invoices with routing hints without validating the public key format.
+<!--
+TODO: Display with more details the bugs we found
+-->
+---
+---
+## C-Lightning accepting invalid invoices
+
+C-Lightning was accepting invoices with routing hints without validating the public key format.
 
 <img src="./core-lightning.png" style="width: 900px; height: 320px; object-fit: contain; margin: 0 auto; display: block;" />
 
