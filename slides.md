@@ -146,8 +146,8 @@ This is where our differential fuzzing comes in. To find these interpretation di
 ---
 ## Edge Cases
 BOLT specifications are comprehensive, but they can't cover every edge case.
-When the spec says `r field should contain one or more entries` - 
-what happens with zero entries? The spec doesn't explicitly say.
+When the spec says `r field should contain one or more entries`.
+What happens with zero entries? The spec doesn't explicitly say.
 
 This is where implementations diverge:
 - Some reject it (Rust-Lightning, Core Lightning)  
@@ -205,55 +205,10 @@ graph LR
 </div>
 
 <!--
-So this diagram shows an overview of how fuzzing works. We can see the corpus which is the inputs that we use to feed to our program after being mutated by the Fuzzer Engine. The target is the function/part of code we want to test of the program. So when we execute a input it will trigger the sanitizers that then give the feedback to the fuzzer engine that will choose based on coverage to save or not that input to the corpus.
+So this diagram shows an overview of how fuzzing works. We can see the corpus which is the inputs that we use to feed to our program that will be mutated by the Fuzzer Engine. The target is the function/part of code we want to test of the program. So when we execute a input it will trigger the sanitizers that then give the feedback to the fuzzer engine that will choose based on coverage to save or not that input to the corpus.
 -->
-
 ---
-
-What is the problem with this double function?
-
-```rust
-use libfuzzer_sys::fuzz_target;
-
-fn double(x: i32) -> i32 {
-    x * 2
-}
-
-fuzz_target!(|data: &[u8]| {
-    if let Some(x) = consume_i32(data) {
-        let _ = double(x);
-    }
-});
-```
-
-<!--
-This is an example of a bug that fuzzing can find. We have this double function that receives a signed integer 32 bits that then will be multiplied by 2. In this example we can see that the double function doesn't handle overflow, so running the fuzzer we will see that it will crash by overflow.
--->
-
 ---
-
-# Let's try now with double function fixed
-
-```rust
-use libfuzzer_sys::fuzz_target;
-
-fn double(x: i32) -> Option<i32> {
-    x.checked_mul(2)
-}
-
-fuzz_target!(|data: &[u8]| {
-    if let Some(x) = consume_i32(data) {
-        let _ = double(x);
-    }
-});
-```
-
-<!--
-Now let's try with the function fixed to see what happens. We can see that the fuzzer get stuck because it explored all the code and maximized the coverage and didn't find any crashes.
--->
-
----
-
 ## Coverage-Guided Fuzzing
 
 Smarter Fuzzing with Coverage
@@ -302,15 +257,60 @@ int calculate_grade(int score) {
 ---
 <img src="./with_sanitizer_coverage.png" style="width: 1100px; height: 500px; object-fit: contain; margin: 0 auto; display: block;" />
 ---
+
+# Let's see an example in practice
+
+
+What is the problem with this double function?
+```rust
+use libfuzzer_sys::fuzz_target;
+
+fn double(x: i32) -> i32 {
+    x * 2
+}
+
+fuzz_target!(|data: &[u8]| {
+    if let Some(x) = consume_i32(data) {
+        let _ = double(x);
+    }
+});
+```
+
+<!--
+This is an example of a bug that fuzzing can find. We have this double function that receives a signed integer 32 bits that then will be multiplied by 2. In this example we can see that the double function doesn't handle overflow, so running the fuzzer we will see that it will crash by overflow.
+-->
+
 ---
 
-# Differential Fuzzing
-
-- Generate thousands of inputs and feed them simultaneously to **multiple implementations**.
+# Let's try now with double function fixed
 
 ```rust
 use libfuzzer_sys::fuzz_target;
 
+fn double(x: i32) -> Option<i32> {
+    x.checked_mul(2)
+}
+
+fuzz_target!(|data: &[u8]| {
+    if let Some(x) = consume_i32(data) {
+        let _ = double(x);
+    }
+});
+```
+
+<!--
+Now let's try with the function fixed to see what happens. We can see that the fuzzer get stuck because it explored all the code and maximized the coverage and didn't find any crashes.
+-->
+
+---
+---
+
+# Differential Fuzzing
+
+- Generate inputs and feed them simultaneously to **multiple programs**.
+- Compare the outputs of the programs to find discrepancies.
+
+```rust
 fn double(x: i32) -> Option<i32> {
     x.checked_mul(2)
 }
@@ -336,61 +336,6 @@ fuzz_target!(|data: &[u8]| {
 ---
 ---
 
-<div style="height: 500px; overflow: hidden;">
-
-<div style="transform: scale(0.7); transform-origin: top center; height: 125%;">
-
-```mermaid
-graph TB
-    subgraph "Fuzzing Engine"
-        A[Seed Corpus]
-        B[Input Mutator]
-        C[Coverage Tracker]
-        D[Interesting Input Queue]
-        E[Crash Detector]
-    end
-    
-    A --> B
-    B --> F[Mutated BOLT11 Invoice]
-    F --> G[LND Parser]
-    F --> H[Core Lightning Parser]
-    F --> I[Rust-Lightning Parser]
-    
-    G --> J[Result + Coverage Info]
-    H --> K[Result + Coverage Info]
-    I --> L[Result + Coverage Info]
-    
-    J --> M{Compare Results}
-    K --> M
-    L --> M
-    
-    M -->|All Same| N{New Coverage?}
-    M -->|Different| O[⚠️ Discrepancy Found]
-    
-    N -->|Yes| P[Add to Corpus]
-    N -->|No| Q[Discard Input]
-    
-    O --> R[Log Bug + Save Reproducer]
-    
-    P --> D
-    Q --> B
-    D --> B
-    R --> S[Investigate: Bug or Spec Ambiguity?]
-    
-    subgraph "Coverage Feedback Loop"
-        C --> N
-        J -.-> C
-        K -.-> C
-        L -.-> C
-    end
-
-```
-</div>
-</div>
-
----
----
-
 ## Bitcoinfuzz: Bitcoin Differential Fuzzing
 
 **What we're building:**
@@ -403,6 +348,29 @@ graph TB
 * targets: deserialize_invoice, deserialize_offer
 
 **Status:** 30 bugs found so far.
+---
+---
+## So which bugs We have found so far?
+
+So in this bug, lightning-kmp was wrongly rejecting an valid invoice by recovering the public key from the signature and then verifying it against the signature without normalizing it first.
+
+<img src="./lightning-kmp.png" style="width: 900px; height: 420px; object-fit: contain; margin: 0 auto; display: block;" />
+---
+---
+## CLN accepting invalid invoices
+
+CLN was accepting invoices with routing hints without validating the public key format.
+
+<img src="./core-lightning.png" style="width: 900px; height: 320px; object-fit: contain; margin: 0 auto; display: block;" />
+
+---
+---
+## Doing differential fuzzing of projects that do not have fuzz testing
+
+Some projects do not have support for fuzzing or do not run their fuzz targets continuously. It means that we could find bugs not because of the
+"differential" thing, but simply because the project has not been fuzzed. 
+
+<img src="./fuzz-lightning-kmp.png" style="width: 800px; height: 320px; object-fit: contain; margin: 0 auto; display: block;" />
 ---
 class: flex flex-col items-center text-center h-full
 ---
