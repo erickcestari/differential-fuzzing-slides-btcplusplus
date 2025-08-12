@@ -94,7 +94,6 @@ So the solution is by doing differential fuzzing. The theme of this presentation
 * Erick Cestari
 * Vinteum Grantee (Bitcoin development funding)
 * Maintainer of bitcoinfuzz. Found 15+ bugs across Lightning implementations (we'll see some of them)
-* **Why this matters:** I've seen firsthand how implementation differences create real problems
 
 <!--
 But first, Who am I?
@@ -104,8 +103,6 @@ My name is Erick Cestari.
 I am a Vinteum grantee. That's Bitcoin development funding for those who aren't familiar.
 
 I'm the maintainer of bitcoinfuzz, where I've found over 15 bugs across various Lightning implementations and reported some security disclosures.
-
-Why does this matter for today's talk? I've seen firsthand how these implementation differences create real problems for users and the network. That's what motivated me to develop systematic approaches to find these issues before they impact real users.
 -->
 ---
 ---
@@ -204,7 +201,7 @@ graph LR
 </div>
 
 <!--
-So this diagram shows an overview of how fuzzing works. We can see the corpus which is the inputs that we use to feed to our program that will be mutated by the Fuzzer Engine. The target is the function/part of code we want to test of the program. So when we execute a input it will trigger the sanitizers that then give the feedback to the fuzzer engine that will choose based on coverage to save or not that input to the corpus.
+This diagram illustrates the basic workflow of fuzzing. The corpus contains the initial set of inputs, which are mutated by the fuzzing engine. These mutated inputs are passed to the fuzz target. The specific part of the program being tested. When executed, the program runs with sanitizers that monitor for issues like crashes or memory errors. The sanitizers then provide coverage feedback to the fuzzer engine, which uses this information to decide whether to keep the new input in the corpus for further mutation.
 -->
 ---
 ---
@@ -232,12 +229,21 @@ int calculate_grade(int score) {
     }
 }
 ```
+<!--
+Coverage sanitizers provide feedback to the fuzzer by tracking which parts of the code are executed. During compilation, they insert instrumentation calls at various code levels (e.g., functions, basic blocks, edges) to report execution paths. The fuzzer uses this feedback to decide whether a given input explores new behavior and should be retained in the corpus. Below is a simple example function that calculates a grade from a score. We'll use this to compare builds with and without coverage sanitization.
+-->
 ---
 ---
 <img src="./no_sanitizer_coverage.png" style="width: 800px; height: 500px; object-fit: contain; margin: 0 auto; display: block;" />
+<!--
+This a High Level view of the C code compiled to machine code without Coverage Sanitizers.
+-->
 ---
 ---
 <img src="./with_sanitizer_coverage.png" style="width: 1100px; height: 500px; object-fit: contain; margin: 0 auto; display: block;" />
+<!--
+This a High Level view of the C code compiled to machine code with Coverage Sanitizers. We can see that it adds function calls to send coverage information to the fuzzer.
+-->
 ---
 
 # Let's see an example in practice
@@ -291,6 +297,10 @@ Now let's try with the function fixed to see what happens. We can see that the f
 - Generate inputs and feed them simultaneously to **multiple programs**.
 - Compare the outputs of the programs to find discrepancies.
 
+<!--
+Differential fuzzing will feed two or more programs with the same input and compare those outputs. If they are different outputs the program will crash and save the possible bug.
+-->
+
 ---
 class: flex items-center justify-center text-center
 ---
@@ -335,6 +345,7 @@ graph LR
 </div>
 
 <!--
+This is an overview diagram of differential fuzzing. The outputs can be structured in many different ways. So it could be a boolean type, integer, string, structured formats, etc. It’s important to return the max information possible in the outputs to then be able to catch most/all the discrepancies.
 -->
 ---
 ---
@@ -373,13 +384,200 @@ fuzz_target!(|data: &[u8]| {
 
 **Current targets (for lightning network):**
 
-* modules: LND, Core Lightning, Rust-Lightning
+* modules: LND, Core Lightning, Rust-Lightning, Eclair, lightning-kmp
 * targets: deserialize_invoice, deserialize_offer
 
 **Status:** 30 bugs found so far.
 ---
 ---
-## So which bugs We have found so far?
+## How Bitcoinfuzz can work with different languages?
+
+- Compile with instrumentation (if possible)
+
+LND:
+```bash
+go build -o liblnd_wrapper.a -buildmode=c-archive -tags=libfuzzer -gcflags=all=-d=libfuzzer wrapper.go
+```
+
+rust-lightning:
+```bash
+RUSTFLAGS="-Z sanitizer=address" cargo rustc --release -- -C passes='sancov-module' \
+    -C llvm-args=-sanitizer-coverage-inline-8bit-counters \
+    -C llvm-args=-sanitizer-coverage-trace-compares \
+    -C llvm-args=-sanitizer-coverage-pc-table \
+    -C llvm-args=-sanitizer-coverage-level=4 \
+    -C llvm-args=-simplifycfg-branch-fold-threshold=0
+```
+---
+---
+## But for languages that can't be compiled to machine code?
+
+- Use ffi (foreign function interface)
+- For java, use JNI
+
+Eclair:
+```cpp
+static std::optional<std::string> eclair_decode_invoice(const char* invoiceStr) {
+    if (!init_jvm() || !jvm) {
+        std::abort();
+    }
+
+    JNIEnv* env = nullptr;
+    jint status = jvm->GetEnv((void**)&env, JNI_VERSION_1_8);
+
+    jstring jInvoiceStr = env->NewStringUTF(invoiceStr);
+    if (!jInvoiceStr) {
+        return "";
+    }
+
+    jstring jResult = static_cast<jstring>(
+        env->CallStaticObjectMethod(decoderClass, decodeMethod, jInvoiceStr)
+    );
+    env->DeleteLocalRef(jInvoiceStr);
+```
+---
+---
+## Let's breakdown a target in Bitcoinfuzz
+
+- We need to define at least three things to create a target:
+
+1. Input type
+2. Output type
+3. Target function
+4. Custom mutators (if needed)
+
+---
+---
+# Example: deserialize_invoice target
+
+1. Input type: BOLT11 invoice string
+2. Output type: string containing all the invoice data (e.g., amount, description, etc.)
+3. Target function: deserialize_invoice
+4. Custom mutators: Bech32 custom mutator
+---
+---
+## rust-lightning:
+```rust
+#[no_mangle]
+pub unsafe extern "C" fn ldk_des_invoice(input: *const std::os::raw::c_char) -> *mut c_char {
+    if input.is_null() {
+        return str_to_c_string("");
+    }
+
+    // Convert C string to Rust string
+    let c_str = match CStr::from_ptr(input).to_str() {
+        Ok(s) => s,
+        Err(_) => return str_to_c_string(""),
+    };
+
+    match Bolt11Invoice::from_str(c_str) { // <-- target function
+        Ok(invoice) => {
+            if invoice.currency() != Currency::Bitcoin {
+                return str_to_c_string("");
+            }
+            let mut result = String::new(); // <-- output
+
+            result.push_str("HASH=");
+            result.push_str(&invoice.payment_hash().to_string());
+
+            result.push_str(";PAYMENT_SECRET=");
+            result.push_str(&invoice.payment_secret().to_string());
+            ...
+```
+---
+---
+## LND:
+
+```go
+//export LndDeserializeInvoice
+func LndDeserializeInvoice(cInvoiceStr *C.char) *C.char {
+	if cInvoiceStr == nil {
+		return C.CString("")
+	}
+
+	runtime.GC()
+
+	// Convert C string to Go string
+	invoiceStr := C.GoString(cInvoiceStr)
+
+	network := &chaincfg.MainNetParams
+
+	invoice, err := zpay32.Decode(invoiceStr, network) // <-- target function
+	if err != nil {
+		return C.CString("")
+	}
+
+	var sb strings.Builder // <-- output
+
+	sb.WriteString("HASH=")
+	if invoice.PaymentHash != nil {
+		sb.WriteString(fmt.Sprintf("%x", *invoice.PaymentHash))
+	}
+    ...
+```
+---
+---
+## Custom mutator
+
+```cpp
+size_t LLVMFuzzerCustomMutator(uint8_t *fuzz_data, size_t size, size_t max_size,
+                               unsigned int seed)
+{
+    // A minimum size of 9 prevents hrp_maxlen <= 0 and data_maxlen <= 0.
+    if (size < 9)
+        return initial_input(fuzz_data, max_size);
+
+    // Interpret fuzz input as string
+    std::string input(reinterpret_cast<char*>(fuzz_data), size);
+
+    size_t data_maxlen = input.size() - 8;
+    size_t hrp_maxlen = input.size() - 6;
+
+    // Attempt to bech32 decode the input
+    bech32::DecodeResult decoded = bech32::Decode(input, bech32::CharLimit::CUSTOM_MUTATOR);
+    if (decoded.encoding != bech32::Encoding::BECH32) {
+        return initial_input(fuzz_data, max_size);
+    }
+
+    auto data = decoded.data;
+    auto hrp = decoded.hrp;
+    ...
+```
+---
+---
+## Compare the outputs
+
+```cpp
+void Driver::InvoiceDeserializationTarget(std::span<const uint8_t> buffer) const
+    {
+        FuzzedDataProvider provider(buffer.data(), buffer.size());
+        std::string invoice{provider.ConsumeRemainingBytesAsString()};
+        std::optional<std::string> last_response{std::nullopt};
+        std::string last_module_name;
+
+        for (auto &module : modules)
+        {
+            std::optional<std::string> res{module.second->deserialize_invoice(invoice)};
+            if (!res.has_value()) continue;
+            if (last_response.has_value()) {
+                if (*res != *last_response) {
+                    std::cout << "Invoice deserialization failed for " << invoice << std::endl;
+                    std::cout << "Module: " << module.first << std::endl;
+                    std::cout << "Result: " << *res << std::endl;
+                    std::cout << "Module: " << last_module_name << std::endl;
+                    std::cout << "Result: " << *last_response << std::endl;
+                }
+                assert(*res == *last_response);
+            }
+
+            last_response = res.value();
+            last_module_name = module.first;
+        }
+    }
+```
+---
+---
+## So which bugs we have found so far?
 
 Lightning-kmp incorrectly rejected valid invoices because it verified recovered public keys against non-normalized signatures.
 <img src="./lightning-kmp.png" style="width: 900px; height: 420px; object-fit: contain; margin: 0 auto; display: block;" />
