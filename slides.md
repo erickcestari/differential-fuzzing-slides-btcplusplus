@@ -390,7 +390,7 @@ fuzz_target!(|data: &[u8]| {
 **Status:** 30 bugs found so far.
 ---
 ---
-## How Bitcoinfuzz can work with different languages?
+## How Bitcoinfuzz works with different languages?
 
 - Compile with instrumentation (if possible)
 
@@ -410,7 +410,7 @@ RUSTFLAGS="-Z sanitizer=address" cargo rustc --release -- -C passes='sancov-modu
 ```
 ---
 ---
-## But for languages that can't be compiled to machine code?
+## How to fuzz interpreted or VM-based languages?
 
 - Use ffi (foreign function interface)
 - For java, use JNI
