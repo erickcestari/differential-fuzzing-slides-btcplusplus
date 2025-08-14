@@ -93,7 +93,7 @@ So the solution is by doing differential fuzzing. The theme of this presentation
 
 * Erick Cestari
 * Vinteum Grantee (Bitcoin development funding)
-* Maintainer of bitcoinfuzz. Found 15+ bugs across Lightning implementations (we'll see some of them)
+* Contributor of bitcoinfuzz. Found 15+ bugs across Lightning implementations (we'll see some of them)
 
 <!--
 But first, Who am I?
@@ -186,8 +186,9 @@ class: flex items-center justify-center text-center
 graph LR
     A[(Corpus)] --> |Inputs| B[Fuzz Engine]
     B --> |Mutated Inputs| C[Fuzz Target]
-    C --> |Test| D((Program))
-    D --> |Execution| E[Sanitizer]
+    C --> |Test| D(("Program 
+    (with optional sanitizers)"))
+    D --> |Execution| E[coverage instrumentation]
     
     B --> |New Inputs| A
     E --> |Coverage Feedback| B
@@ -201,13 +202,13 @@ graph LR
 </div>
 
 <!--
-This diagram illustrates the basic workflow of fuzzing. The corpus contains the initial set of inputs, which are mutated by the fuzzing engine. These mutated inputs are passed to the fuzz target. The specific part of the program being tested. When executed, the program runs with sanitizers that monitor for issues like crashes or memory errors. The sanitizers then provide coverage feedback to the fuzzer engine, which uses this information to decide whether to keep the new input in the corpus for further mutation.
+This diagram illustrates the basic workflow of fuzzing. The corpus contains the initial set of inputs, which are mutated by the fuzzing engine. These mutated inputs are passed to the fuzz target. The specific part of the program being tested. When executed, the program runs with sanitizers that monitor for issues like crashes or memory errors. The coverage instrumentation then provide coverage feedback to the fuzzer engine, which uses this information to decide whether to keep the new input in the corpus for further mutation.
 -->
 ---
 ---
-## Coverage-Sanitizer
+## SanitizerCoverage
 
-We use coverage-sanitizer to track which code paths are exercised.
+We use SanitizerCoverage to track which code paths are exercised.
 
 It inserts calls to user-defined functions on function-, basic-block-, and edge- levels.
 
@@ -230,19 +231,19 @@ int calculate_grade(int score) {
 }
 ```
 <!--
-Coverage sanitizers provide feedback to the fuzzer by tracking which parts of the code are executed. During compilation, they insert instrumentation calls at various code levels (e.g., functions, basic blocks, edges) to report execution paths. The fuzzer uses this feedback to decide whether a given input explores new behavior and should be retained in the corpus. Below is a simple example function that calculates a grade from a score. We'll use this to compare builds with and without coverage sanitization.
+SanitizerCoverage provide feedback to the fuzzer by tracking which parts of the code are executed. During compilation, they insert instrumentation calls at various code levels (e.g., functions, basic blocks, edges) to report execution paths. The fuzzer uses this feedback to decide whether a given input explores new behavior and should be retained in the corpus. Below is a simple example function that calculates a grade from a score. We'll use this to compare builds with and without coverage sanitization.
 -->
 ---
 ---
 <img src="./no_sanitizer_coverage.png" style="width: 800px; height: 500px; object-fit: contain; margin: 0 auto; display: block;" />
 <!--
-This a High Level view of the C code compiled to machine code without Coverage Sanitizers.
+This a High Level view of the C code compiled to machine code without CoverageSanitizers.
 -->
 ---
 ---
 <img src="./with_sanitizer_coverage.png" style="width: 1100px; height: 500px; object-fit: contain; margin: 0 auto; display: block;" />
 <!--
-This a High Level view of the C code compiled to machine code with Coverage Sanitizers. We can see that it adds function calls to send coverage information to the fuzzer.
+This a High Level view of the C code compiled to machine code with CoverageSanitizers. We can see that it adds function calls to send coverage information to the fuzzer.
 -->
 ---
 
@@ -390,7 +391,7 @@ fuzz_target!(|data: &[u8]| {
 **Status:** 30 bugs found so far.
 ---
 ---
-## How Bitcoinfuzz works with different languages?
+## How does Bitcoinfuzz works with different languages?
 
 - Compile with instrumentation (if possible)
 
@@ -452,8 +453,7 @@ static std::optional<std::string> eclair_decode_invoice(const char* invoiceStr) 
 
 1. Input type: BOLT11 invoice string
 2. Output type: string containing all the invoice data (e.g., amount, description, etc.)
-3. Target function: deserialize_invoice
-4. Custom mutators: Bech32 custom mutator
+3. Custom mutators: Bech32 custom mutator
 ---
 ---
 ## rust-lightning:
@@ -577,7 +577,7 @@ void Driver::InvoiceDeserializationTarget(std::span<const uint8_t> buffer) const
 ```
 ---
 ---
-## So which bugs we have found so far?
+## So what bugs have we found so far?
 
 Lightning-kmp incorrectly rejected valid invoices because it verified recovered public keys against non-normalized signatures.
 <img src="./lightning-kmp.png" style="width: 900px; height: 420px; object-fit: contain; margin: 0 auto; display: block;" />
