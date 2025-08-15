@@ -374,6 +374,20 @@ fuzz_target!(|data: &[u8]| {
     }
 });
 ```
+
+<!--
+This is an example of how differential fuzzing catches subtle bugs that regular fuzzing might miss.
+
+We have two functions that are supposed to do the same thing. Double an integer safely. The first function uses Rust's built-in checked_mul which handles overflow correctly.
+
+The second function has a subtle off-by-one error. It uses >= instead of > when checking the bounds. This means it will reject i32::MAX / 2, even though that value can actually be safely doubled.
+
+With regular fuzzing, both functions would work fine and wouldn't crash. But with differential fuzzing, we feed the same input to both functions and compare their outputs.
+
+When the fuzzer generates i32::MAX / 2 as input, the first function returns Some(i32::MAX), but the second function incorrectly returns None. The outputs don't match, so our assertion fails and we've found the bug!
+
+This demonstrates the power of differential fuzzing. It's not looking for crashes, it's looking for inconsistent behavior between implementations that should behave the same way.
+-->
 ---
 ---
 
@@ -389,6 +403,21 @@ fuzz_target!(|data: &[u8]| {
 * targets: deserialize_invoice, deserialize_offer
 
 **Status:** 30 bugs found so far.
+
+<!--
+So now let me introduce you to Bitcoinfuzz. This is the practical implementation of differential fuzzing that I've been working on for the Bitcoin ecosystem.
+
+Our goal is simple but powerful: build a comprehensive differential fuzzing framework that can test Bitcoin protocol implementations and libraries against each other to find discrepancies before they hit production.
+
+We're testing five major implementations: LND, which is Go-based and very popular; Core Lightning, the C implementation; Rust-Lightning, obviously written in Rust; Eclair, which is Scala-based; and lightning-kmp, which is a Kotlin multiplatform implementation.
+
+Right now we have two main fuzzing targets. The deserialize_invoice target tests BOLT11 invoice parsing. Like the coffee shop scenario I showed earlier. And deserialize_offer tests the newer BOLT12 offer format.
+
+We've found 30 bugs so far across these implementations. These aren't just theoretical issues; they're real interoperability problems that would affect users trying to make payments between different Lightning implementations.
+
+What's particularly valuable is that we're catching these issues systematically rather than waiting for frustrated users to report them after failed payments.
+-->
+
 ---
 ---
 ## How does Bitcoinfuzz works with different languages?
@@ -409,6 +438,17 @@ RUSTFLAGS="-Z sanitizer=address" cargo rustc --release -- -C passes='sancov-modu
     -C llvm-args=-sanitizer-coverage-level=4 \
     -C llvm-args=-simplifycfg-branch-fold-threshold=0
 ```
+
+<!--
+One of the biggest challenges in building Bitcoinfuzz is that Lightning implementations are written in different programming languages. Each language has its own compilation model and fuzzing ecosystem, so we need different approaches for each.
+
+For compiled languages like Go and Rust, we can compile with instrumentation to get coverage feedback that guides the fuzzer.
+
+This instrumentation is crucial because it tells the fuzzer which inputs are exploring new code paths. Without it, the fuzzer would just be generating random data with no guidance about what's interesting.
+
+The challenge is that not all languages support this level of instrumentation easily, which brings us to our next slide about interpreted languages.
+-->
+
 ---
 ---
 ## How to fuzz interpreted or VM-based languages?
@@ -436,16 +476,46 @@ static std::optional<std::string> eclair_decode_invoice(const char* invoiceStr) 
     );
     env->DeleteLocalRef(jInvoiceStr);
 ```
+
+<!--
+How do we fuzz languages that run on virtual machines or are interpreted, like Java or Scala? These languages don't compile directly to native code with LLVM instrumentation.
+
+The solution is to use Foreign Function Interfaces, FFI. Essentially, we create a bridge between our native fuzzing harness and the VM-based implementation.
+
+For Eclair, which is written in Scala and runs on the JVM, we use JNI, the Java Native Interface. This code snippet shows how we set up that bridge.
+
+First, we initialize the JVM if it's not already running. Then we get a JNI environment handle that lets us interact with Java objects and methods from C++.
+
+We convert our C string input to a Java string object, then call the Scala method that decodes the invoice. Finally, we convert the result back to a C++ string and clean up the Java references to avoid memory leaks.
+
+The downside of this approach is that we lose the coverage instrumentation we get with native compilation. The fuzzer can't see inside the JVM to know which code paths are being exercised. But we can still do differential fuzzing by comparing outputs, we just rely more on structural mutations and less on coverage-guided exploration.
+
+This FFI approach works for any language that can expose a C-compatible interface, whether it's Python, JavaScript, or other VM-based languages.
+-->
 ---
 ---
 ## Let's breakdown a target in Bitcoinfuzz
 
 - We need to define at least three things to create a target:
 
-1. Input type
-2. Output type
-3. Target function
+1. Target function
+2. Input type
+3. Output type
 4. Custom mutators (if needed)
+
+<!--
+How we actually build a fuzzing target in Bitcoinfuzz. To create an effective differential fuzzing target, we need to define several key components.
+
+First, we need the target function. This is the specific functionality we want to test across different implementations. For example, "deserialize an invoice" or "validate a signature."
+
+Second, we define the input type. This determines what kind of data the fuzzer will generate and feed to our target function. It could be raw bytes, strings, structured data, or protocol-specific formats like BOLT11 invoices.
+
+Third, we need to carefully design the output type. This is crucial for differential fuzzing because we need to compare outputs across implementations. The output should capture as much semantic information as possible, not just "success" or "failure," but the actual parsed data, error codes, or structured results.
+
+Fourth, and this is often the secret sauce, we may need custom mutators. Generic fuzzers are great at flipping random bits, but protocol-specific formats often have checksums, signatures, or encoding schemes that make random mutations mostly invalid. Custom mutators understand the format and can generate more meaningful test cases.
+
+Let me show you how this works in practice with our invoice deserialization target.
+-->
 
 ---
 ---
@@ -454,6 +524,17 @@ static std::optional<std::string> eclair_decode_invoice(const char* invoiceStr) 
 1. Input type: BOLT11 invoice string
 2. Output type: string containing all the invoice data (e.g., amount, description, etc.)
 3. Custom mutators: Bech32 custom mutator
+
+<!--
+Let's look at our invoice deserialization target as a concrete example.
+
+Input: BOLT11 invoice strings.
+
+Output: A comprehensive string with all parsed data. Payment hash, amount, description, routing hints, etc. We capture everything, not just success/failure, so we can spot subtle parsing differences between implementations.
+
+Custom mutator: This is the key piece. BOLT11 uses Bech32 encoding with checksums. Random bit flipping creates 99% invalid inputs. Our custom mutator decodes the invoice, mutates the actual data fields meaningfully, then re-encodes with valid checksums. This generates much more interesting test cases that actually exercise the parsing logic.
+-->
+
 ---
 ---
 ## rust-lightning:
@@ -519,30 +600,37 @@ func LndDeserializeInvoice(cInvoiceStr *C.char) *C.char {
 ---
 ## Custom mutator
 
-```cpp
-size_t LLVMFuzzerCustomMutator(uint8_t *fuzz_data, size_t size, size_t max_size,
-                               unsigned int seed)
-{
-    // A minimum size of 9 prevents hrp_maxlen <= 0 and data_maxlen <= 0.
-    if (size < 9)
-        return initial_input(fuzz_data, max_size);
+- BOLT 11 invoice have checksums that are calculated from the data.
+- So we need to mutate the data and recompute the checksum.
 
-    // Interpret fuzz input as string
-    std::string input(reinterpret_cast<char*>(fuzz_data), size);
+<div style="transform: scale(1);">
 
-    size_t data_maxlen = input.size() - 8;
-    size_t hrp_maxlen = input.size() - 6;
-
-    // Attempt to bech32 decode the input
-    bech32::DecodeResult decoded = bech32::Decode(input, bech32::CharLimit::CUSTOM_MUTATOR);
-    if (decoded.encoding != bech32::Encoding::BECH32) {
-        return initial_input(fuzz_data, max_size);
-    }
-
-    auto data = decoded.data;
-    auto hrp = decoded.hrp;
-    ...
+```mermaid
+graph LR
+    A["BOLT 11 Invoice<br/>(Bech32 Encoded)<br/>prefix + data + checksum"] --> B[Decode Bech32]
+    B --> C["Mutate Raw Bytes<br/>(Modify invoice data)"]
+    C --> D["Encode Bech32<br/>(Automatically computes<br/>new checksum)"]
+    D --> E["Mutated BOLT 11 Invoice<br/>(New valid checksum)"]
+    E --> G(("Target"))
+    
+    subgraph Fuzzer["Fuzzer"]
+        A
+        B
+        C  
+        D
+    end
+    
+    style Fuzzer fill:#f0f0f0,stroke:#333,stroke-width:2px
 ```
+</div>
+
+<!--
+This diagram shows why custom mutators are essential for protocol fuzzing. BOLT11 invoices have checksums, if you flip random bits, the checksum becomes invalid and implementations reject the input immediately.
+
+Our custom mutator is smarter: it decodes the Bech32 format first, mutates the actual invoice data, then re-encodes with a fresh, valid checksum. This way we generate inputs that pass basic validation and actually exercise the parsing logic.
+
+Without this approach, we'd just be testing input validation over and over. With it, we can mutate amounts, descriptions, routing hints, and other semantic fields while keeping the invoice structurally valid. This generates much more interesting test cases that reveal implementation differences in how they handle edge cases in the actual data.
+-->
 ---
 ---
 ## Compare the outputs
