@@ -187,7 +187,7 @@ graph LR
     A[(Corpus)] --> |Inputs| B[Fuzz Engine]
     B --> |Mutated Inputs| C[Fuzz Target]
     C --> |Test| D(("Program 
-    (with optional sanitizers)"))
+    (with instrumentation)"))
     D --> |Execution| E[coverage instrumentation]
     
     B --> |New Inputs| A
@@ -202,13 +202,13 @@ graph LR
 </div>
 
 <!--
-This diagram illustrates the basic workflow of fuzzing. The corpus contains the initial set of inputs, which are mutated by the fuzzing engine. These mutated inputs are passed to the fuzz target. The specific part of the program being tested. When executed, the program runs with sanitizers that monitor for issues like crashes or memory errors. The coverage instrumentation then provide coverage feedback to the fuzzer engine, which uses this information to decide whether to keep the new input in the corpus for further mutation.
+This diagram illustrates the basic workflow of fuzzing. The corpus contains the initial set of inputs, which are mutated by the fuzzing engine. These mutated inputs are passed to the fuzz target. The specific part of the program being tested. When executed, the coverage instrumentation then provide coverage feedback to the fuzzer engine, which uses this information to decide whether to keep the new input in the corpus for further mutation.
 -->
 ---
 ---
-## SanitizerCoverage
+## Coverage instrumentation
 
-We use SanitizerCoverage to track which code paths are exercised.
+We use instrumentation to track which code paths are exercised.
 
 It inserts calls to user-defined functions on function-, basic-block-, and edge- levels.
 
@@ -231,19 +231,19 @@ int calculate_grade(int score) {
 }
 ```
 <!--
-SanitizerCoverage provide feedback to the fuzzer by tracking which parts of the code are executed. During compilation, they insert instrumentation calls at various code levels (e.g., functions, basic blocks, edges) to report execution paths. The fuzzer uses this feedback to decide whether a given input explores new behavior and should be retained in the corpus. Below is a simple example function that calculates a grade from a score. We'll use this to compare builds with and without coverage sanitization.
+Coverage instrumentation provide feedback to the fuzzer by tracking which parts of the code are executed. During compilation, they insert instrumentation calls at various code levels (e.g., functions, basic blocks, edges) to report execution paths. The fuzzer uses this feedback to decide whether a given input explores new behavior and should be retained in the corpus. Below is a simple example function that calculates a grade from a score. We'll use this to compare builds with and without coverage sanitization.
 -->
 ---
 ---
-<img src="./no_sanitizer_coverage.png" style="width: 800px; height: 500px; object-fit: contain; margin: 0 auto; display: block;" />
+<img src="./no_coverage_instrumentation.png" style="width: 800px; height: 500px; object-fit: contain; margin: 0 auto; display: block;" />
 <!--
-This a High Level view of the C code compiled to machine code without CoverageSanitizers.
+This a High Level view of the C code compiled to machine code without coverage instrumentation.
 -->
 ---
 ---
-<img src="./with_sanitizer_coverage.png" style="width: 1100px; height: 500px; object-fit: contain; margin: 0 auto; display: block;" />
+<img src="./with_coverage_instrumentation.png" style="width: 1100px; height: 500px; object-fit: contain; margin: 0 auto; display: block;" />
 <!--
-This a High Level view of the C code compiled to machine code with CoverageSanitizers. We can see that it adds function calls to send coverage information to the fuzzer.
+This a High Level view of the C code compiled to machine code with coverage instrumentation. We can see that it adds function calls to send coverage information to the fuzzer.
 -->
 ---
 
