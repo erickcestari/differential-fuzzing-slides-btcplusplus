@@ -247,7 +247,7 @@ This a High Level view of the C code compiled to machine code with coverage inst
 -->
 ---
 
-# Let's see an example in practice
+# Fuzzing Finds Crashes
 
 What is the problem with this double function?
 ```rust
@@ -270,7 +270,7 @@ This is an example of a bug that fuzzing can find. We have this double function 
 
 ---
 ---
-# Let's try now with double function fixed
+# When Fuzzing Gets Stuck
 
 ```rust
 use libfuzzer_sys::fuzz_target;
@@ -282,6 +282,38 @@ fn double(x: i32) -> Option<i32> {
 fuzz_target!(|data: &[u8]| {
     if let Some(x) = consume_i32(data) {
         let _ = double(x);
+    }
+});
+```
+
+<!--
+Now let's try with the function fixed to see what happens. We can see that the fuzzer get stuck because it explored all the code and maximized the coverage and didn't find any crashes.
+-->
+
+---
+---
+# Coverage-Guided Fuzzing in Action
+
+```rust
+use libfuzzer_sys::fuzz_target;
+
+fuzz_target!(|data: &[u8]| {
+    if data.len() != 6 {
+        return;
+    }
+
+    if data[0] == b'f' {
+        if data[1] == b'u' {
+            if data[2] == b'z' {
+                if data[3] == b'z' {
+                    if data[4] == b'l' {
+                        if data[5] == b'n' {
+                            panic!("Crash triggered: found the magic sequence!");
+                        }
+                    }
+                }
+            }
+        }
     }
 });
 ```
