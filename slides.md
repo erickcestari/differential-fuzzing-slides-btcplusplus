@@ -668,32 +668,30 @@ Without this approach, we'd just be testing input validation over and over. With
 ## Compare the outputs
 
 ```cpp
-void Driver::InvoiceDeserializationTarget(std::span<const uint8_t> buffer) const
-    {
-        FuzzedDataProvider provider(buffer.data(), buffer.size());
-        std::string invoice{provider.ConsumeRemainingBytesAsString()};
-        std::optional<std::string> last_response{std::nullopt};
-        std::string last_module_name;
-
-        for (auto &module : modules)
-        {
-            std::optional<std::string> res{module.second->deserialize_invoice(invoice)};
-            if (!res.has_value()) continue;
-            if (last_response.has_value()) {
-                if (*res != *last_response) {
-                    std::cout << "Invoice deserialization failed for " << invoice << std::endl;
-                    std::cout << "Module: " << module.first << std::endl;
-                    std::cout << "Result: " << *res << std::endl;
-                    std::cout << "Module: " << last_module_name << std::endl;
-                    std::cout << "Result: " << *last_response << std::endl;
-                }
-                assert(*res == *last_response);
+void Driver::InvoiceDeserializationTarget(std::span<const uint8_t> buffer) const {
+    std::string invoice = ConsumeString(buffer);
+    std::optional<std::string> first_result;
+    
+    // Test each Lightning implementation
+    for (auto &implementation : implementations) {
+        auto result = implementation->deserialize_invoice(invoice);
+        
+        if (first_result.has_value()) {
+            // Compare with previous result
+            if (result != first_result) {
+                std::cout << "DISCREPANCY FOUND!" << std::endl;
+                std::cout << "Invoice: " << invoice << std::endl;
+                std::cout << "Implementation A: " << first_result.value() << std::endl;
+                std::cout << "Implementation B: " << result.value() << std::endl;
+                
+                // This assertion will crash and save the test case
+                assert(result == first_result);
             }
-
-            last_response = res.value();
-            last_module_name = module.first;
+        } else {
+            first_result = result;
         }
     }
+}
 ```
 ---
 ---
