@@ -175,7 +175,127 @@ This is the perfect example of why differential fuzzing is so valuable. Instead 
 <!--
 So let's start by fuzzing testing technique. So it's an automated software testing technique that involves providing invalid, unexpected or random data as inputs to a program.
 -->
+---
+class: flex items-center justify-center text-center
+---
 
+<div style="transform: scale(1.2);">
+```mermaid
+graph LR
+    A[(Corpus)] 
+    
+    style A fill:#e8f5e8
+```
+</div>
+
+<!--
+The corpus is our starting point. It's a collection of initial seed inputs that will be used to generate test cases.
+-->
+---
+class: flex items-center justify-center text-center
+---
+
+<div style="transform: scale(1.2);">
+```mermaid
+graph LR
+    A[(Corpus)] --> |Inputs| B[Fuzz Engine]
+    
+    style A fill:#e8f5e8
+    style B fill:#f0f8ff
+```
+</div>
+
+<!--
+The fuzz engine takes inputs from the corpus and is responsible for generating new test cases through mutations.
+-->
+
+---
+class: flex items-center justify-center text-center
+---
+<div style="transform: scale(2.2);">
+```mermaid
+graph LR
+    A[(Corpus)] --> |Inputs| B[Fuzz Engine]
+    B --> |Mutated Inputs| C[Fuzz Target]
+    
+    style A fill:#e8f5e8
+    style B fill:#f0f8ff
+    style C fill:#e8f5e8
+```
+</div>
+
+<!--
+The fuzz engine creates mutated inputs and sends them to the fuzz target. The specific part of the program we want to test.
+-->
+---
+class: flex items-center justify-center text-center
+---
+<div style="transform: scale(3.2);">
+```mermaid
+graph LR
+    A[(Corpus)] --> |Inputs| B[Fuzz Engine]
+    B --> |Mutated Inputs| C[Fuzz Target]
+    C --> |Test| D(("Program 
+    (with instrumentation)"))
+    
+    style A fill:#e8f5e8
+    style B fill:#f0f8ff
+    style C fill:#e8f5e8
+    style D fill:#e8f0f8
+```
+</div>
+
+<!--
+The fuzz target executes the program with the mutated inputs. The program is instrumented to collect execution data.
+-->
+
+---
+class: flex items-center justify-center text-center
+---
+<div style="transform: scale(3.2);">
+```mermaid
+graph LR
+    A[(Corpus)] --> |Inputs| B[Fuzz Engine]
+    B --> |Mutated Inputs| C[Fuzz Target]
+    C --> |Test| D(("Program 
+    (with instrumentation)"))
+    D --> |Execution| E[Coverage Instrumentation]
+    
+    style A fill:#e8f5e8
+    style B fill:#f0f8ff
+    style C fill:#e8f5e8
+    style D fill:#e8f0f8
+    style E fill:#f0f8ff
+```
+</div>
+
+<!--
+During execution, coverage instrumentation tracks which parts of the code are executed, providing feedback.
+-->
+---
+class: flex items-center justify-center text-center
+---
+<div style="transform: scale(3.2);">
+```mermaid
+graph LR
+    A[(Corpus)] --> |Inputs| B[Fuzz Engine]
+    B --> |Mutated Inputs| C[Fuzz Target]
+    C --> |Test| D(("Program 
+    (with instrumentation)"))
+    D --> |Execution| E[Coverage Instrumentation]
+    E --> |Coverage Feedback| B
+    
+    style A fill:#e8f5e8
+    style B fill:#f0f8ff
+    style C fill:#e8f5e8
+    style D fill:#e8f0f8
+    style E fill:#f0f8ff
+```
+</div>
+
+<!--
+The coverage feedback is sent back to the fuzz engine, helping it understand which inputs are discovering new code paths.
+-->
 ---
 class: flex items-center justify-center text-center
 ---
@@ -202,7 +322,7 @@ graph LR
 </div>
 
 <!--
-This diagram illustrates the basic workflow of fuzzing. The corpus contains the initial set of inputs, which are mutated by the fuzzing engine. These mutated inputs are passed to the fuzz target. The specific part of the program being tested. When executed, the coverage instrumentation then provide coverage feedback to the fuzzer engine, which uses this information to decide whether to keep the new input in the corpus for further mutation.
+When the fuzz engine discovers inputs that lead to new coverage, these are added back to the corpus, creating a continuous improvement cycle.
 -->
 ---
 ---
