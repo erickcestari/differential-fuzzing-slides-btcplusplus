@@ -341,12 +341,8 @@ int calculate_grade(int score) {
         return 'A';
     } else if (score >= 80) {
         return 'B';
-    } else if (score >= 70) {
-        return 'C';
-    } else if (score >= 60) {
-        return 'D';
     } else {
-        return 'F';
+        return 'C';
     }
 }
 ```
@@ -511,7 +507,7 @@ fn double(x: i32) -> Option<i32> {
 
 fn double2(x: i32) -> Option<i32> {
     // Off-by-one: using >= instead of >
-    if x >= i32::MAX / 2 || x <= i32::MIN / 2 {
+    if x >= i32::MAX / 2 || x < i32::MIN / 2 {
         None
     } else {
         Some(x * 2)
