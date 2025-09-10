@@ -18,6 +18,10 @@ Hello, my name is Erick Cestari.
 I will talk about differential fuzzing on the Lightning Network. A technique to find bugs between different Lightning implementations.
 -->
 
+<div class="absolute bottom-4 right-10">
+  <img src="./github-qr.png" alt="QR Code" class="w-30 h-30" />
+</div>
+
 ---
 
 <img src="./alice_pay_bob.png" style="width: 800px; height: 500px; object-fit: contain; margin: 0 auto; display: block;" />
@@ -49,20 +53,16 @@ Same invoice, different implementation, different result.
 
 ---
 
-## Implementation Differences
+## Same Spec, Different Behavior
 
-Different Lightning implementations can interpret the same data differently
+**The problem:**
+- **Network Instability** – implementations disagree, payments fail
+- **Bad User Experience** – success depends on which node you use
 
-Real-world impact:
-
-* **Network instability** -  Interoperability failures between implementations
-* **Poor user experience** - Success depends on implementation choice
-
-Traditional approach:
-
-* Wait for users to report bugs
-* Manual testing between implementations
-* Reactive fixes
+**Traditional approach:**
+- Wait for users to report bugs
+- Manual cross-implementation testing
+- Reactive fixes after failures
 
 <!--
 Different Lightning implementations can interpret the same data differently. Real-world impact: Poor user experience where success depends on which implementation you're using. Traditional approach: Wait for users to report bugs, manual testing between implementations, reactive fixes.
@@ -102,7 +102,7 @@ My name is Erick Cestari.
 
 I am a Vinteum grantee. That's Bitcoin development funding for those who aren't familiar.
 
-I'm the maintainer of bitcoinfuzz, where I've found over 15 bugs across various Lightning implementations and reported some security disclosures.
+I'm the contributor of bitcoinfuzz, where I've found over 15 bugs across various Lightning implementations and reported some security disclosures.
 -->
 ---
 ---
@@ -112,6 +112,7 @@ If we built a new Bitcoin implementation today, where would we find the specific
 * Bitcoin Core codebase. The reference implementation
 * No formal written specification document
 * Consensus rules are implicit in the code
+
 <!--
 Bitcoin has an interesting characteristic. There's no formal specification document. 
 If you want to build a new Bitcoin implementation today, you essentially have to reverse-engineer Bitcoin Core.
@@ -850,4 +851,8 @@ erickcestari03@gmail.com
 </div>
 <div>
 github.com/erickcestari
+</div>
+
+<div class="absolute bottom-4 right-10">
+  <img src="./github-qr.png" alt="QR Code" class="w-30 h-30" />
 </div>
