@@ -811,15 +811,51 @@ void Driver::InvoiceDeserializationTarget(std::span<const uint8_t> buffer) const
 }
 ```
 ---
+class: flex items-center justify-center text-center
+---
+
+# Let's run bitcoinfuzz!
+
+---
 ---
 ## So what bugs have we found so far?
 
-Lightning-kmp incorrectly rejected valid invoices because it verified recovered public keys against non-normalized signatures.
-<img src="./lightning-kmp.png" style="width: 900px; height: 420px; object-fit: contain; margin: 0 auto; display: block;" />
+1. LND: lightningnetwork/lnd#9591
+1. Core Lightning: ElementsProject/lightning#8219
+1. LND: lightningnetwork/lnd#9808
+1. Core Lightning: ElementsProject/lightning#8282
+1. bolts: lightning/bolts#1264
+1. rust-lightning: lightningdevkit/rust-lightning#3814
+1. LND: lightningnetwork/lnd#9904
+1. LND: lightningnetwork/lnd#9915
+1. Eclair: ACINQ/eclair#3104
+1. lightning-kmp: ACINQ/lightning-kmp#799
+1. lightning-kmp: ACINQ/lightning-kmp#801
+1. lightning-kmp: ACINQ/lightning-kmp#802
+1. rust-lightning: lightningdevkit/rust-lightning#3998
+1. bolts: lightning/bolts#1279
+1. rust-lightning: lightningdevkit/rust-lightning#4018
 
-<!--
-TODO: Display with more details the bugs we found
--->
+---
+---
+
+## Improved signature specification in BOLT11
+
+```mermaid
+flowchart LR
+    A[Start: Validate invoice signature] --> B{"Does invoice include<br/>explicit pubkey (n field)"?}
+
+    B -- Yes --> E["Verify signature (requires lower-S)"]
+    E -->|valid| Z[ACCEPT]
+    E -->|invalid| X2[Reject: signature verification failed]:::reject
+
+    B -- No --> G["Recover pubkey from signature (does not require lower-S)"]
+    G -- invalid --> X3[Reject: cannot recover pubkey]:::reject
+    G -->|valid| Z[ACCEPT]
+
+    classDef reject fill:#ffe6e6,stroke:#cc0000,color:#990000;
+```
+
 ---
 ---
 ## C-Lightning accepting invalid invoices
@@ -836,6 +872,20 @@ Some projects do not have support for fuzzing or do not run their fuzz targets c
 "differential" thing, but simply because the project has not been fuzzed. 
 
 <img src="./fuzz-lightning-kmp.png" style="width: 800px; height: 320px; object-fit: contain; margin: 0 auto; display: block;" />
+
+---
+---
+
+# How to Contribute to **BitcoinFuzz**
+
+- **Add new targets** (BIP32 key derivations, secp256k1, etc.)
+- **Add new libraries** (bolt11.js, bitcoinj, libbitcoin)
+- **Build system improvements**
+
+<div class="absolute bottom-4 right-10">
+  <img src="./github-bitcoinfuzz.png" alt="QR Code" class="w-30 h-30" />
+</div>
+
 ---
 class: flex flex-col items-center text-center h-full
 ---
