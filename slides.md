@@ -56,8 +56,9 @@ Same invoice, different implementation, different result.
 ## Same Spec, Different Behavior
 
 **The problem:**
-- **Network Instability** – implementations disagree, payments fail
-- **Bad User Experience** – success depends on which node you use
+- Network Instability
+- Bad User Experience
+- Potential Security Issues
 
 **Traditional approach:**
 - Wait for users to report bugs
@@ -89,11 +90,11 @@ So the solution is by doing differential fuzzing. The theme of this presentation
 
 ---
 
-# Who am I?
+## Who am I?
 
 * Erick Cestari
 * Vinteum Grantee (Bitcoin development funding)
-* Contributor of bitcoinfuzz. Found 15+ bugs across Lightning implementations (we'll see some of them)
+* Contributor of Bitcoinfuzz. Found 15+ bugs across Lightning implementations (we'll see some of them)
 
 <!--
 But first, Who am I?
@@ -129,8 +130,6 @@ Lightning Network took a different approach with BOLT specifications
 * Multiple implementations can follow the same spec
 * But... specifications can be ambiguous or incomplete
 
-![Bolts github image](./bolts.png)
-
 <!--
 Lightning Network learned from Bitcoin's approach and took a specification-first approach.
 BOLT stands for Basis of Lightning Technology. These are formal written specifications that cover all aspects of the Lightning protocol.
@@ -144,9 +143,8 @@ This is where our differential fuzzing comes in. To find these interpretation di
 ---
 ---
 ## Edge Cases
-BOLT specifications are comprehensive, but they can't cover every edge case.
 When the spec says `r field should contain one or more entries`.
-What happens with zero entries? The spec doesn't explicitly say.
+What happens with zero entries?
 
 This is where implementations diverge:
 - Some reject it (Rust-Lightning, Core Lightning)  
@@ -169,9 +167,9 @@ This is the perfect example of why differential fuzzing is so valuable. Instead 
 -->
 ---
 
-# So let's start simple, what is fuzzing?
+## So let's start simple, what is fuzzing?
 
-- Fuzzing is an automated software testing technique that involves providing invalid, unexpected, or random data as inputs to a computer program.
+Fuzzing is an automated software testing technique that involves providing invalid, unexpected, or random data as inputs to a computer program.
 
 <!--
 So let's start by fuzzing testing technique. So it's an automated software testing technique that involves providing invalid, unexpected or random data as inputs to a program.
@@ -364,7 +362,7 @@ This a High Level view of the C code compiled to machine code with coverage inst
 -->
 ---
 
-# Fuzzing Finds Crashes
+## Fuzzing Finds Crashes
 
 What is the problem with this double function?
 ```rust
@@ -387,7 +385,7 @@ This is an example of a bug that fuzzing can find. We have this double function 
 
 ---
 ---
-# When Fuzzing Gets Stuck
+## When Fuzzing Gets Stuck
 
 ```rust
 use libfuzzer_sys::fuzz_target;
@@ -409,7 +407,7 @@ Now let's try with the function fixed to see what happens. We can see that the f
 
 ---
 ---
-# Coverage-Guided Fuzzing in Action
+## Coverage-Guided Fuzzing in Action
 
 ```rust
 use libfuzzer_sys::fuzz_target;
@@ -442,7 +440,7 @@ Now let's try with the function fixed to see what happens. We can see that the f
 ---
 ---
 
-# Differential Fuzzing
+## Differential Fuzzing
 
 - Generate inputs and feed them simultaneously to **multiple programs**.
 - Compare the outputs of the programs to find discrepancies.
@@ -499,7 +497,7 @@ This is an overview diagram of differential fuzzing. The outputs can be structur
 -->
 ---
 ---
-# Example: Differential Fuzzing
+## Example: Differential Fuzzing
 
 ```rust
 fn double(x: i32) -> Option<i32> {
@@ -668,7 +666,7 @@ Let me show you how this works in practice with our invoice deserialization targ
 
 ---
 ---
-# Example: deserialize_invoice target
+## Example: deserialize_invoice target
 
 1. Input type: BOLT11 invoice string
 2. Output type: string containing all the invoice data (e.g., amount, description, etc.)
@@ -814,7 +812,7 @@ void Driver::InvoiceDeserializationTarget(std::span<const uint8_t> buffer) const
 class: flex items-center justify-center text-center
 ---
 
-# Let's run bitcoinfuzz!
+# Let's run Bitcoinfuzz!
 
 ---
 ---
@@ -850,7 +848,7 @@ flowchart LR
     E -->|invalid| X2[Reject: signature verification failed]:::reject
 
     B -- No --> G["Recover pubkey from signature (does not require lower-S)"]
-    G -- invalid --> X3[Reject: cannot recover pubkey]:::reject
+    G -->|invalid| X2[Reject: signature verification failed]:::reject
     G -->|valid| Z[ACCEPT]
 
     classDef reject fill:#ffe6e6,stroke:#cc0000,color:#990000;
@@ -876,7 +874,7 @@ Some projects do not have support for fuzzing or do not run their fuzz targets c
 ---
 ---
 
-# How to Contribute to **BitcoinFuzz**
+## How to Contribute to **Bitcoinfuzz**
 
 - **Add new targets** (BIP32 key derivations, secp256k1, etc.)
 - **Add new libraries** (bolt11.js, bitcoinj, libbitcoin)
