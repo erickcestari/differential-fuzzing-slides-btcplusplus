@@ -547,7 +547,7 @@ This demonstrates the power of differential fuzzing. It's not looking for crashe
 **Current targets (for lightning network):**
 
 * modules: LND, Core Lightning, Rust-Lightning, Eclair, lightning-kmp
-* targets: deserialize_invoice, deserialize_offer
+* targets: deserialize_invoice, deserialize_offer, parse_p2p_lightning_message
 
 **Status:** 30 bugs found so far.
 
