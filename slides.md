@@ -841,15 +841,15 @@ class: flex items-center justify-center text-center
 
 ```mermaid
 flowchart LR
-    A[Start: Validate invoice signature] --> B{"Does invoice include<br/>explicit pubkey (n field)"?}
+    A[Start: Validate invoice signature] --> B{n field present?}
 
-    B -- Yes --> E["Verify signature (requires lower-S)"]
-    E -->|valid| Z[ACCEPT]
-    E -->|invalid| X2[Reject: signature verification failed]:::reject
+    B -- Yes --> C[Verify signature with pubkey<br/>Signature MUST be low-S]
+    C -->|valid| Z[ACCEPT]
+    C -->|invalid| X1[Reject: invalid signature]:::reject
 
-    B -- No --> G["Recover pubkey from signature (does not require lower-S)"]
-    G -->|invalid| X2[Reject: signature verification failed]:::reject
-    G -->|valid| Z[ACCEPT]
+    B -- No --> D[Recover pubkey from signature<br/>High-S or low-S accepted]
+    D -->|valid| Z
+    D -->|invalid| X1
 
     classDef reject fill:#ffe6e6,stroke:#cc0000,color:#990000;
 ```
@@ -879,6 +879,7 @@ Some projects do not have support for fuzzing or do not run their fuzz targets c
 - **Add new targets** (BIP32 key derivations, secp256k1, etc.)
 - **Add new libraries** (bolt11.js, bitcoinj, libbitcoin)
 - **Build system improvements**
+- **Run bitcoinfuzz!**
 
 <div class="absolute bottom-4 right-10">
   <img src="./github-bitcoinfuzz.png" alt="QR Code" class="w-30 h-30" />
